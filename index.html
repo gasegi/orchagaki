@@ -14,11 +14,11 @@
             <!-- ② Status によって表示ブロックを切り替える -->
             <!-- play： カメラの映像をキャンバスにリアルタイムで表示 -->
             <div v-if="status=='play'">
+                1等: <input v-model="grade1">
+                2等: <input v-model="grade2">
+                3等: <input v-model="grade3">
                 <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold px-8 py-3 rounded" @click="takeSnapshot">
                     スナップショットを取る
-                    1等: <input v-model="grade1">
-                    2等: <input v-model="grade2">
-                    3等: <input v-model="grade3">
                 </button>
             </div>
             <!-- pause： スナップショットを撮ったので一次停止 -->
