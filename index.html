@@ -10,21 +10,24 @@
         <div ref="canvas-container" style="width:100%;margin:0 auto;">
             <canvas ref="canvas"></canvas>
         </div>
-        <div class="text-center pt-3">
+        <div class="text-center pt-3">{{status}}
             <!-- ② Status によって表示ブロックを切り替える -->
             <!-- play： カメラの映像をキャンバスにリアルタイムで表示 -->
             <div v-if="status=='play'">
                 1等: <input v-model="grade1">
                 2等: <input v-model="grade2">
                 3等: <input v-model="grade3">
-                <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold px-8 py-3 rounded" @click="takeSnapshot">
+                <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold px-8 py-3 rounded" @click="runOcr">
                     スナップショットを取る
                 </button>
             </div>
             <!-- pause： スナップショットを撮ったので一次停止 -->
             <div v-if="status=='pause'">
+                <pre>
+                    {{text}}
+                </pre>
                 <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold px-8 py-3 mr-1 rounded" @click="runOcr">
-                    ISBNを読み取る
+                   ISBNを読み取る
                 </button>
                 <button class="bg-transparent hover:bg-blue-500 text-blue-700 font-semibold hover:text-white py-2 px-4 ml-1 border border-blue-500 hover:border-transparent rounded" @click="playVideo">
                     戻る
@@ -55,7 +58,8 @@
                     grade1: '',
                     grade2: '',
                     grade3: '',
-                    text: ''
+                    text: '',
+                    worker : null
                 }
             },
             methods: {
@@ -64,13 +68,21 @@
 
                     this.status = 'initialize';
 
-                    navigator.mediaDevices.getUserMedia({
+                    this.worker = Tesseract.createWorker({
+                        logger: m => console.log(m)
+                    });
+                    
+                    const worker = this.worker
+                    worker.load()
+                    .then(()=>worker.loadLanguage('eng'))
+                    .then(()=>worker.initialize('eng'))
+                    .then(()=>navigator.mediaDevices.getUserMedia({
                         video: {
                             facingMode: {
                                 ideal: 'environment'
                             }
                         }
-                    })
+                    }))
                     .then(stream => {
 
                         this.canvas = this.$refs.canvas;
@@ -110,27 +122,27 @@
                 runOcr() { // ③ スナップショットからテキストを抽出
 
                     this.status = 'reading';
+                    this.status = 'pause';
 
+                    // this.pauseVideo();
                     this.dataUrl = this.canvas.toDataURL();
-                    Tesseract.recognize(this.dataUrl, 'eng', {
-                        logger: log => {
 
-                            console.log(log);
-
-                        }
-                    })
+                    const worker = this.worker
+                    worker.recognize(this.dataUrl)
                     .then(result => {
-
+                        console.log(result.data.text)
                         // alert(result.data.text);
-                        let resultnumber = /\d{6}/i.exec(result.data.text)[0];
+                        let resultnumber = /\d{6}/i.exec(result.data.text);
                         let resulttext ='';
-                        if (resultnumber.endsWith(this.grade1)) {
+                        if (!resultnumber ){
+                            resulttext = 'はずれです(結果なし)'
+                        } else if (resultnumber.endsWith(this.grade1)) {
                             resulttext = '1等当選です'
                         } else if (resultnumber.endsWith(this.grade2)){
                             resulttext = '2等当選です'
                         } else if (resultnumber.endsWith(this.grade3)){
                             resulttext = '3等当選です'
-                        }else {
+                        } else {
                             resulttext = 'はずれです'
                         }
                         this.text = `読み取り結果: ${result.data.text}\n
